@@ -380,6 +380,54 @@ pub const Bunfig = struct {
                         this.ctx.test_options.default_timeout_ms = expr.data.e_number.toU32();
                     }
 
+                    if (test_.get("bail")) |expr| {
+                        try this.expect(expr, .e_number);
+                        this.ctx.test_options.bail = expr.data.e_number.toU32();
+                    }
+
+                    if (test_.get("todo")) |expr| {
+                        try this.expect(expr, .e_boolean);
+                        this.ctx.test_options.run_todo = expr.data.e_boolean.value;
+                    }
+
+                    if (test_.get("only")) |expr| {
+                        try this.expect(expr, .e_boolean);
+                        this.ctx.test_options.only = expr.data.e_boolean.value;
+                    }
+
+                    if (test_.get("passWithNoTests")) |expr| {
+                        try this.expect(expr, .e_boolean);
+                        this.ctx.test_options.pass_with_no_tests = expr.data.e_boolean.value;
+                    }
+
+                    if (test_.get("concurrent")) |expr| {
+                        try this.expect(expr, .e_boolean);
+                        this.ctx.test_options.concurrent = expr.data.e_boolean.value;
+                    }
+
+                    if (test_.get("maxConcurrency")) |expr| {
+                        try this.expect(expr, .e_number);
+                        this.ctx.test_options.max_concurrency = expr.data.e_number.toU32();
+                    }
+
+                    if (test_.get("updateSnapshots")) |expr| {
+                        try this.expect(expr, .e_boolean);
+                        this.ctx.test_options.update_snapshots = expr.data.e_boolean.value;
+                    }
+
+                    if (test_.get("testNamePattern")) |expr| {
+                        try this.expectString(expr);
+                        const pattern = try expr.data.e_string.string(allocator);
+                        this.ctx.test_options.test_filter_pattern = pattern;
+                        this.ctx.test_options.test_filter_regex = bun.jsc.RegularExpression.init(
+                            bun.String.fromBytes(pattern),
+                            bun.jsc.RegularExpression.Flags.none,
+                        ) catch {
+                            try this.addErrorFormat(expr.loc, allocator, "Invalid testNamePattern: expected a valid regular expression", .{});
+                            return;
+                        };
+                    }
+
                     var randomize_from_config: ?bool = null;
 
                     if (test_.get("randomize")) |expr| {

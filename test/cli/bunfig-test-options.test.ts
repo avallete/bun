@@ -260,4 +260,97 @@ describe("bunfig.toml test options", () => {
     // 2 tests * 2 reruns = 4 total test runs
     expect(output).toContain("4 pass");
   });
+
+  test("bail option from bunfig.toml stops after first failure", async () => {
+    const dir = tempDirWithFiles("bunfig-test-bail", {
+      "test.test.ts": `
+        import { test, expect } from "bun:test";
+        test("fail first", () => {
+          expect(1).toBe(2);
+        });
+        test("should not run", () => {
+          console.log("SHOULD_NOT_RUN");
+          expect(1).toBe(1);
+        });
+      `,
+      "bunfig.toml": `[test]\nbail = 1`,
+    });
+
+    await using proc = Bun.spawn({
+      cmd: [bunExe(), "test"],
+      env: bunEnv,
+      cwd: dir,
+      stderr: "pipe",
+      stdout: "pipe",
+    });
+
+    const [stdout, stderr, exitCode] = await Promise.all([
+      new Response(proc.stdout).text(),
+      new Response(proc.stderr).text(),
+      proc.exited,
+    ]);
+
+    const output = stdout + stderr;
+    // bail=1 means stop after 1 failure, so "should not run" won't execute
+    expect(output).not.toContain("SHOULD_NOT_RUN");
+    expect(output).toContain("1 fail");
+    expect(exitCode).toBe(1);
+  });
+
+  test("passWithNoTests option from bunfig.toml", async () => {
+    const dir = tempDirWithFiles("bunfig-test-pass-no-tests", {
+      "empty.test.ts": `
+        // No tests defined here
+      `,
+      "bunfig.toml": `[test]\npassWithNoTests = true`,
+    });
+
+    await using proc = Bun.spawn({
+      cmd: [bunExe(), "test"],
+      env: bunEnv,
+      cwd: dir,
+      stderr: "pipe",
+      stdout: "pipe",
+    });
+
+    const [stdout, stderr, exitCode] = await Promise.all([
+      new Response(proc.stdout).text(),
+      new Response(proc.stderr).text(),
+      proc.exited,
+    ]);
+
+    // With passWithNoTests = true, exit code should be 0 even with no tests
+    expect(exitCode).toBe(0);
+  });
+
+  test("todo option from bunfig.toml shows todo tests", async () => {
+    const dir = tempDirWithFiles("bunfig-test-todo", {
+      "test.test.ts": `
+        import { test, expect } from "bun:test";
+        test.todo("this is a todo test", () => {
+          expect(1).toBe(1);
+        });
+      `,
+      "bunfig.toml": `[test]\ntodo = true`,
+    });
+
+    await using proc = Bun.spawn({
+      cmd: [bunExe(), "test"],
+      env: bunEnv,
+      cwd: dir,
+      stderr: "pipe",
+      stdout: "pipe",
+    });
+
+    const [stdout, stderr, exitCode] = await Promise.all([
+      new Response(proc.stdout).text(),
+      new Response(proc.stderr).text(),
+      proc.exited,
+    ]);
+
+    const output = stdout + stderr;
+    // With todo = true, todo tests should be executed
+    expect(output).toContain("todo");
+    expect(exitCode).toBe(0);
+  });
 });

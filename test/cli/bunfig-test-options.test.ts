@@ -30,8 +30,8 @@ describe("bunfig.toml test options", () => {
 
     const output = stdout + stderr;
     // The test should fail because it sleeps for 500ms but timeout is 100ms
-    expect(exitCode).toBe(1);
     expect(output).toContain("timed out");
+    expect(exitCode).toBe(1);
   });
 
   test("timeout option from bunfig.toml allows passing tests within limit", async () => {

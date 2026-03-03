@@ -375,6 +375,11 @@ pub const Bunfig = struct {
                         this.ctx.test_options.coverage.skip_test_files = expr.data.e_boolean.value;
                     }
 
+                    if (test_.get("timeout")) |expr| {
+                        try this.expect(expr, .e_number);
+                        this.ctx.test_options.default_timeout_ms = expr.data.e_number.toU32();
+                    }
+
                     var randomize_from_config: ?bool = null;
 
                     if (test_.get("randomize")) |expr| {

@@ -2,6 +2,70 @@ import { describe, expect, test } from "bun:test";
 import { bunEnv, bunExe, tempDirWithFiles } from "harness";
 
 describe("bunfig.toml test options", () => {
+  test("timeout option from bunfig.toml is respected", async () => {
+    const dir = tempDirWithFiles("bunfig-test-timeout", {
+      "test.test.ts": `
+        import { test, expect } from "bun:test";
+        test("slow test should timeout", async () => {
+          await Bun.sleep(500);
+          expect(true).toBe(true);
+        });
+      `,
+      "bunfig.toml": `[test]\ntimeout = 100`,
+    });
+
+    await using proc = Bun.spawn({
+      cmd: [bunExe(), "test"],
+      env: bunEnv,
+      cwd: dir,
+      stderr: "pipe",
+      stdout: "pipe",
+    });
+
+    const [stdout, stderr, exitCode] = await Promise.all([
+      new Response(proc.stdout).text(),
+      new Response(proc.stderr).text(),
+      proc.exited,
+    ]);
+
+    const output = stdout + stderr;
+    // The test should fail because it sleeps for 500ms but timeout is 100ms
+    expect(exitCode).toBe(1);
+    expect(output).toContain("timed out");
+  });
+
+  test("timeout option from bunfig.toml allows passing tests within limit", async () => {
+    const dir = tempDirWithFiles("bunfig-test-timeout-pass", {
+      "test.test.ts": `
+        import { test, expect } from "bun:test";
+        test("fast test should pass", async () => {
+          await Bun.sleep(10);
+          expect(true).toBe(true);
+        });
+      `,
+      "bunfig.toml": `[test]\ntimeout = 5000`,
+    });
+
+    await using proc = Bun.spawn({
+      cmd: [bunExe(), "test"],
+      env: bunEnv,
+      cwd: dir,
+      stderr: "pipe",
+      stdout: "pipe",
+    });
+
+    const [stdout, stderr, exitCode] = await Promise.all([
+      new Response(proc.stdout).text(),
+      new Response(proc.stderr).text(),
+      proc.exited,
+    ]);
+
+    const output = stdout + stderr;
+    // The test should pass because it sleeps for only 10ms with timeout of 5000ms
+    expect(output).toContain("1 pass");
+    expect(exitCode).toBe(0);
+  });
+
   test("randomize with seed produces consistent order", async () => {
     const dir = tempDirWithFiles("bunfig-test-randomize-seed", {
       "test.test.ts": `
